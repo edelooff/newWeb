@@ -80,21 +80,21 @@ class NewWeb(object):
     """
     req = request.Request(env, self.registry)
     page_maker = self.page_class(req, config=self.config)
-    response = self.get_response(page_maker, req.path)
+    response = self.get_response(page_maker, req.path, req.method)
     if not isinstance(response, Response):
       req.response.text = response
       response = req.response
     start_response(response.status, response.headerlist)
     yield response.content
 
-  def get_response(self, page_maker, path):
+  def get_response(self, page_maker, path, method):
     try:
       # We're specifically calling _PostInit here as promised in documentation.
       # pylint: disable=W0212
       page_maker._PostInit()
       # pylint: enable=W0212
-      method, args = self.router(path)
-      return getattr(page_maker, method)(*args)
+      handler, args = self.router(path, method)
+      return getattr(page_maker, handler)(*args)
     except pagemaker.ReloadModules, message:
       reload_message = reload(sys.modules[self.page_class.__module__])
       return Response(content='%s\n%s' % (message, reload_message))
@@ -126,24 +126,30 @@ def read_config(config_file):
 def router(routes):
   """Returns the first request handler that matches the request URL.
 
-  The `routes` argument is an iterable of 2-tuples, each of which contain a
-  pattern (regex) and the name of the handler to use for matching requests.
+  The `routes` argument is an iterable of 3-tuples, each of which contain a
+  pattern (regex), request methods and the name of the handler to use for matching requests.
 
-  Before returning the closure, all regexen are compiled, and handler methods
+  Before returning the closure, all regexes are compiled, and handler methods
   are retrieved from the provided `page_class`.
 
   Arguments:
-    @ routes: iterable of 2-tuples.
-      Each tuple is a pair of `pattern` and `handler`, both are strings.
+    @ routes: iterable of 3-tuples.
+      Each tuple is a set of `pattern`, `methods` and `handler`, all are strings.
 
   Returns:
     request_router: Configured closure that processes urls.
   """
   req_routes = []
-  for pattern, method in routes:
-    req_routes.append((re.compile(pattern + '$', re.UNICODE), method))
+  default_methods = {'GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'}
+  for route in routes:
+    try:
+      pattern, methods, handler = route
+    except ValueError:
+      pattern, handler = route
+      methods = default_routes
+    req_routes.append((re.compile(pattern + '$', re.UNICODE), methods, handler))
 
-  def request_router(url):
+  def request_router(url, method):
     """Returns the appropriate handler and arguments for the given `url`.
 
     The`url` is matched against the compiled patterns in the `req_routes`
@@ -164,9 +170,9 @@ def router(routes):
     Returns:
       2-tuple: handler method (unbound), and tuple of pattern matches.
     """
-    for pattern, handler in req_routes:
+    for pattern, methods, handler in req_routes:
       match = pattern.match(url)
-      if match:
+      if match and (method in methods):
         return handler, match.groups()
     raise NoRouteError(url +' cannot be handled')
   return request_router

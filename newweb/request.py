@@ -65,6 +65,13 @@ class Request(object):
       return self.env['PATH_INFO']
 
   @property
+  def method(self):
+    try:
+      return self.env['REQUEST_METHOD'].decode('UTF8')
+    except UnicodeDecodeError:
+      return self.env['REQUEST_METHOD']
+
+  @property
   def response(self):
     if self._response is None:
       self._response = response.Response()
