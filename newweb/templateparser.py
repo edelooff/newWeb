@@ -14,6 +14,7 @@ Error classes:
 import os
 import re
 import urllib
+from xml.sax import saxutils
 
 
 class Error(Exception):
@@ -865,19 +866,15 @@ def HtmlEscape(text):
   The relevant defined set consists of the following characters: &'"<>
 
   Takes:
-    @ html: str
-      The html string with html character entities.
+    @ text: str
+      Raw test that needs entity-escaping
 
   Returns:
-    str: the input, after turning entites back into raw characters.
+    str: the input, after converting necessary characters to entity-refs.
   """
   if not isinstance(text, basestring):
-    text = unicode(text)
-  html = text.replace('&', '&amp;')
-  html = html.replace('"', '&quot;')
-  html = html.replace("'", '&#39;')  # &apos; is valid, but poorly supported.
-  html = html.replace('>', '&gt;')
-  return html.replace('<', '&lt;')
+    text = unicode(text)  # Get string representation of non-string object
+  return saxutils.escape(text, {'"': '&quot;', "'": '&#39;'})
 
 
 def UrlQuote(text):
