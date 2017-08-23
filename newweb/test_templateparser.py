@@ -282,6 +282,13 @@ class TemplateTagFunctions(unittest.TestCase):
     self.assertEqual(self.parse(default, none='"nothing"'), expected)
     self.assertEqual(self.parse(escaped, none='"nothing"'), expected)
 
+  def testAllHtmlEscapes(self):
+    """[TagFunctions] The default function escapes all verboten characters."""
+    template = '[text]'
+    template_input = '"Quotes" \'n <brackets> & such'
+    expected = '&quot;Quotes&quot; &#39;n &lt;brackets&gt; &amp; such'
+    self.assertEqual(self.parse(template, text=template_input), expected)
+
   def testNoDefaultForSafeString(self):
     """[TagFunctions] The default function does not act upon SafeString parts"""
     first_template = 'Hello doctor [name]'
